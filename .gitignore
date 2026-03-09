@@ -1,0 +1,12 @@
+.devenv/
+.direnv/
+result
+.pre-commit-config.yaml
+
+# `devenv.lock` is ignored for fast local-first polyrepo workflow without diff churn.
+devenv.lock
+
+*.local.*
+*.override.*
+!*.local.example.*
+!*.override.example.*

@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>pp Auth Export</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        margin: 0;
+        padding: 16px;
+        min-width: 340px;
+        background: #161a1f;
+        color: #e6e8ec;
+      }
+      h2 {
+        margin: 0 0 12px 0;
+        font-size: 16px;
+      }
+      .section {
+        margin-bottom: 14px;
+        padding: 12px;
+        background: #20262d;
+        border: 1px solid #2d3540;
+        border-radius: 8px;
+      }
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #748094;
+      }
+      .dot.connected {
+        background: #22c55e;
+      }
+      .dot.authenticated {
+        background: #3b82f6;
+      }
+      label {
+        display: block;
+        font-size: 12px;
+        color: #9aa6b2;
+        margin-bottom: 4px;
+      }
+      input[type="text"] {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 6px;
+        border: 1px solid #3a4554;
+        background: #11151a;
+        color: #e6e8ec;
+        font-size: 13px;
+        margin-bottom: 8px;
+      }
+      input[type="text"]:focus {
+        outline: none;
+        border-color: #3b82f6;
+      }
+      button {
+        border: none;
+        border-radius: 6px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      button.primary {
+        background: #3b82f6;
+        color: #ffffff;
+      }
+      button.primary:hover {
+        background: #2563eb;
+      }
+      button.primary:disabled {
+        background: #48566b;
+        cursor: not-allowed;
+      }
+      button.secondary {
+        background: #324052;
+        color: #e6e8ec;
+      }
+      .domain-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid #2c353f;
+      }
+      .domain-item:last-child {
+        border-bottom: none;
+      }
+      .domain-item label {
+        margin: 0;
+        color: #e6e8ec;
+      }
+      .add-domain {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .add-domain input {
+        margin-bottom: 0;
+      }
+      .message {
+        margin-top: 10px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+      .message.info {
+        background: #172554;
+        color: #bfdbfe;
+      }
+      .message.error {
+        background: #450a0a;
+        color: #fecaca;
+      }
+      .message.success {
+        background: #052e16;
+        color: #bbf7d0;
+      }
+      .paths {
+        margin-top: 6px;
+        color: #d1d5db;
+        font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>pp Auth Export</h2>
+
+    <div class="section">
+      <div class="status">
+        <div class="dot" id="statusDot"></div>
+        <span id="statusText">Not connected</span>
+      </div>
+      <label>Server URL</label>
+      <input id="serverInput" type="text" value="ws://127.0.0.1:9271" />
+      <label>Token (from `pp auth-listen`)</label>
+      <input id="tokenInput" type="text" placeholder="Paste token" />
+      <button class="primary" id="connectBtn">Connect</button>
+    </div>
+
+    <div class="section">
+      <label>Domains to export</label>
+      <div id="domainList"></div>
+      <div class="add-domain">
+        <input id="newDomain" type="text" placeholder="example.com" />
+        <button class="secondary" id="addDomainBtn">Add</button>
+      </div>
+    </div>
+
+    <button class="primary" id="exportBtn" disabled>Export Cookies</button>
+    <div id="messageArea"></div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

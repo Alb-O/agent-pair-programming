@@ -1,0 +1,36 @@
+{
+  "name": "pp",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "pp": "dist/cli.js"
+  },
+  "description": "Pair programming CLI for ChatGPT navigation plus sparse Playwright build and e2e workflows",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "check": "tsc --noEmit --project tsconfig.json",
+    "start": "node dist/cli.js",
+    "test": "npm run build && node --test tests/cli.test.mjs tests/pp.test.mjs tests/navigator/*.test.mjs",
+    "test:navigator": "npm run build && node --test tests/navigator/*.test.mjs",
+    "test:playwright": "playwright test --config=playwright.config.ts",
+    "test:playwright:navigator": "playwright test --config=playwright.config.ts tests/playwright/navigator",
+    "test:playwright:navigator:live": "PP_CHATGPT_LIVE=1 playwright test --config=playwright.config.ts tests/playwright/navigator/chatgpt_live_roundtrip.spec.ts",
+    "pp:send": "node dist/cli.js send",
+    "pp:wait": "node dist/cli.js wait",
+    "pp:get-response": "node dist/cli.js get-response",
+    "pp:download": "node dist/cli.js download",
+    "auth:listen": "node dist/cli.js auth-listen",
+    "test:playwright:headful": "PP_HEADFUL=1 playwright test --config=playwright.config.ts --headed"
+  },
+  "dependencies": {
+    "commander": "^14.0.3",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "@types/node": "^22.10.2",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.25.9",
+    "typescript": "^5.9.2"
+  }
+}

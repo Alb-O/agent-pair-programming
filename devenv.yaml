@@ -1,0 +1,30 @@
+inputs:
+  nixpkgs:
+    url: github:cachix/devenv-nixpkgs/rolling
+  treefmt-nix:
+    url: github:numtide/treefmt-nix
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
+  git-hooks:
+    url: github:cachix/git-hooks.nix
+    inputs:
+      nixpkgs:
+        follows: nixpkgs
+  dvnv-instructions-composer:
+    url: github:Alb-O/dvnv-instructions-composer
+    flake: false
+  committer:
+    url: github:Alb-O/committer
+    flake: false
+  dvnv-docs-env:
+    url: github:Alb-O/dvnv-docs-env
+    flake: false
+  dvnv-local-inputs:
+    url: github:Alb-O/dvnv-local-inputs
+    flake: false
+imports:
+  - dvnv-instructions-composer
+  - committer
+  - dvnv-docs-env
+  - dvnv-local-inputs

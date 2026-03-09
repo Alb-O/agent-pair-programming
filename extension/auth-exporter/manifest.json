@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "pp Auth Export",
+  "description": "Export browser cookies to pp auth-listen for authenticated automation",
+  "version": "0.1.0",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["cookies", "activeTab", "storage", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "pp Auth Export",
+    "default_popup": "popup.html"
+  }
+}
