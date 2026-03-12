@@ -27,18 +27,20 @@ The downloaded file is Playwright storage state JSON with this shape:
 
 ## Use Exported Auth State
 
-Load it into a Playwright-backed persistent profile with `pw-cli`:
+Load it into a named `pp` profile:
 
 ```bash
 export PP_PROFILE=chatgpt-profile
-export PP_USER_DATA_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/pp/profiles/${PP_PROFILE}/browser-state/v1/linux"
 
-pw-cli open https://chatgpt.com --headed --persistent --profile "$PP_USER_DATA_DIR"
-pw-cli state-load ./chatgpt_com.state.json
-pw-cli reload
-pw-cli close
+pp state-load --profile "$PP_PROFILE" ./chatgpt_com.state.json
 
 pp send --profile "$PP_PROFILE" "Reply with AUTH_OK"
+```
+
+If you need the real browser user-data-dir for debugging, run:
+
+```bash
+pp profile-path --profile "$PP_PROFILE"
 ```
 
 You can also import/export the same file with Playwright code using

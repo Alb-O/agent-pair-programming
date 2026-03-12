@@ -398,11 +398,13 @@ test("parseArgs parses pp download options", () => {
 	assert.equal(parsed.options.output, "out.txt");
 });
 
-test("parseArgs parses pp set-model/new/refresh/isolate", () => {
+test("parseArgs parses pp set-model/new/refresh/isolate/login/profile-path", () => {
 	const setModel = parseArgs(["set-model", "instant"]);
 	const startNew = parseArgs(["new", "--model", "auto"]);
 	const refresh = parseArgs(["refresh"]);
 	const isolate = parseArgs(["isolate"]);
+	const login = parseArgs(["login"]);
+	const profilePath = parseArgs(["profile-path"]);
 
 	assert.equal(setModel.kind, "pp-set-model");
 	assert.equal(setModel.options.mode, "instant");
@@ -410,6 +412,18 @@ test("parseArgs parses pp set-model/new/refresh/isolate", () => {
 	assert.equal(startNew.options.model, "auto");
 	assert.equal(refresh.kind, "pp-refresh");
 	assert.equal(isolate.kind, "pp-isolate");
+	assert.equal(login.kind, "pp-login");
+	assert.equal(profilePath.kind, "pp-profile-path");
+});
+
+test("parseArgs parses pp state-load/state-save file arguments", () => {
+	const load = parseArgs(["state-load", "./chatgpt.state.json"]);
+	const save = parseArgs(["state-save", "./chatgpt.state.json"]);
+
+	assert.equal(load.kind, "pp-state-load");
+	assert.equal(load.options.inputPath, "./chatgpt.state.json");
+	assert.equal(save.kind, "pp-state-save");
+	assert.equal(save.options.outputPath, "./chatgpt.state.json");
 });
 
 test("navigator aliases are removed from parseArgs surface", () => {
@@ -466,6 +480,20 @@ test("pp send rejects removed --auth-file option", () => {
 
 	assert.equal(result.status, 1);
 	assert.match(result.stderr, /unknown option '--auth-file'/);
+});
+
+test("pp state-load requires a file path", () => {
+	const result = runCli(["state-load"]);
+
+	assert.equal(result.status, 1);
+	assert.match(result.stderr, /missing required argument 'file'/);
+});
+
+test("pp state-save requires a file path", () => {
+	const result = runCli(["state-save"]);
+
+	assert.equal(result.status, 1);
+	assert.match(result.stderr, /missing required argument 'file'/);
 });
 
 test("pp send reads project from PP_CHATGPT_PROJECT", () => {

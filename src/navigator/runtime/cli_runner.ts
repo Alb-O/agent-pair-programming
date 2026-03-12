@@ -1,3 +1,4 @@
+import childProcess from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -203,6 +204,18 @@ export type NavigatorRefreshOptions = NavigatorConnectionOptions;
 
 export type NavigatorIsolateOptions = NavigatorConnectionOptions;
 
+export type NavigatorLoginOptions = NavigatorConnectionOptions;
+
+export type NavigatorStateLoadOptions = NavigatorConnectionOptions & {
+	inputPath: string;
+};
+
+export type NavigatorStateSaveOptions = NavigatorConnectionOptions & {
+	outputPath: string;
+};
+
+export type NavigatorProfilePathOptions = NavigatorConnectionOptions;
+
 export type PpSendResult = {
 	success: boolean;
 	sent: boolean;
@@ -381,6 +394,133 @@ const connectionUsesManagedProfile = (
 ): boolean =>
 	resolveConnectionBrowser(connection) === "chromium" &&
 	!isNonEmpty(connection.cdpUrl);
+
+const resolveManagedProfileUserDataDir = (
+	connection: NavigatorConnectionOptions,
+): string => {
+	if (isNonEmpty(connection.cdpUrl)) {
+		throw new Error(
+			"managed profile actions require a persistent profile; remove --cdp-url",
+		);
+	}
+	if (isNonEmpty(connection.userDataDir)) {
+		return path.resolve(connection.userDataDir);
+	}
+	const resolvedBrowser = resolveConnectionBrowser(connection);
+	const resolvedChromiumBin =
+		resolvedBrowser === "chromium"
+			? requireChromiumBin(connection.chromiumBin)
+			: undefined;
+	const profile = resolveNavigatorManagedProfileName({
+		profile: connection.profile,
+		session: connection.session,
+	});
+	return resolveProfileRuntimeUserDataDir({
+		browser: resolvedBrowser,
+		profile,
+		chromiumBin: resolvedChromiumBin,
+	});
+};
+
+const resolvePwCliBridgeSessionName = (
+	connection: NavigatorConnectionOptions,
+): string =>
+	`pp-${crypto
+		.createHash("sha256")
+		.update(resolveManagedProfileUserDataDir(connection))
+		.digest("hex")
+		.slice(0, 12)}`;
+
+const resolvePwCliBridgeMetadata = (
+	connection: NavigatorConnectionOptions,
+): {
+	browser: NavigatorBrowser;
+	userDataDir: string;
+	pwCliSession: string;
+} => ({
+	browser: resolveConnectionBrowser(connection),
+	userDataDir: resolveManagedProfileUserDataDir(connection),
+	pwCliSession: resolvePwCliBridgeSessionName(connection),
+});
+
+export const resolvePpManagedProfileUserDataDir = resolveManagedProfileUserDataDir;
+export const resolvePpPwCliSessionName = resolvePwCliBridgeSessionName;
+
+const resolvePwCliBridgeEnv = (
+	connection: NavigatorConnectionOptions,
+): NodeJS.ProcessEnv => {
+	const env: NodeJS.ProcessEnv = {
+		...process.env,
+		PLAYWRIGHT_CLI_SESSION: resolvePwCliBridgeSessionName(connection),
+	};
+	if (
+		resolveConnectionBrowser(connection) === "chromium" &&
+		isNonEmpty(connection.chromiumBin)
+	) {
+		env.PW_BROWSER_EXECUTABLE_PATH = path.resolve(connection.chromiumBin);
+	}
+	return env;
+};
+
+const runPwCliBridge = ({
+	connection,
+	args,
+}: {
+	connection: NavigatorConnectionOptions;
+	args: readonly string[];
+}): void => {
+	const pwCliBin = process.env.PP_PW_CLI_BIN?.trim() || "pw-cli";
+	const result = childProcess.spawnSync(pwCliBin, args, {
+		stdio: "inherit",
+		env: resolvePwCliBridgeEnv(connection),
+	});
+	if (result.error) {
+		if ((result.error as NodeJS.ErrnoException).code === "ENOENT") {
+			throw new Error(
+				`pw-cli not found on PATH (looked for '${pwCliBin}'). Set PP_PW_CLI_BIN or run inside devenv.`,
+			);
+		}
+		throw result.error;
+	}
+	if (result.status !== 0) {
+		throw new Error(
+			`pw-cli ${args.join(" ")} failed with exit code ${String(result.status)}`,
+		);
+	}
+};
+
+const runPwCliProfileOpen = ({
+	connection,
+	headed,
+}: {
+	connection: NavigatorConnectionOptions;
+	headed: boolean;
+}): void => {
+	const resolved = resolvePwCliBridgeMetadata(connection);
+	const args = [
+		"open",
+		connection.chatUrl,
+		"--browser",
+		resolved.browser,
+		"--persistent",
+		"--profile",
+		resolved.userDataDir,
+	];
+	if (headed) {
+		args.push("--headed");
+	}
+	runPwCliBridge({
+		connection,
+		args,
+	});
+};
+
+const runPwCliClose = (connection: NavigatorConnectionOptions): void => {
+	runPwCliBridge({
+		connection,
+		args: ["close"],
+	});
+};
 
 const resolveManagedLaunchIdentity = (
 	connection: NavigatorConnectionOptions,
@@ -1253,6 +1393,93 @@ export const runPpPaste = async (
 		return result;
 	});
 
+export const runPpLogin = async (options: NavigatorLoginOptions) => {
+	const resolved = resolvePwCliBridgeMetadata(options);
+	runPwCliProfileOpen({
+		connection: options,
+		headed: options.headless !== true,
+	});
+	return {
+		opened: true,
+		chat_url: options.chatUrl,
+		browser: resolved.browser,
+		user_data_dir: resolved.userDataDir,
+		pw_cli_session: resolved.pwCliSession,
+	};
+};
+
+export const runPpStateLoad = async (options: NavigatorStateLoadOptions) => {
+	const resolved = resolvePwCliBridgeMetadata(options);
+	const inputPath = path.resolve(options.inputPath);
+	if (!fs.existsSync(inputPath)) {
+		throw new Error(`state file does not exist: ${inputPath}`);
+	}
+
+	runPwCliProfileOpen({
+		connection: options,
+		headed: false,
+	});
+	try {
+		runPwCliBridge({
+			connection: options,
+			args: ["state-load", inputPath],
+		});
+		runPwCliBridge({
+			connection: options,
+			args: ["reload"],
+		});
+	} finally {
+		try {
+			runPwCliClose(options);
+		} catch {}
+	}
+
+	return {
+		loaded: true,
+		input_path: inputPath,
+		browser: resolved.browser,
+		user_data_dir: resolved.userDataDir,
+		pw_cli_session: resolved.pwCliSession,
+	};
+};
+
+export const runPpStateSave = async (options: NavigatorStateSaveOptions) => {
+	const resolved = resolvePwCliBridgeMetadata(options);
+	const outputPath = path.resolve(options.outputPath);
+
+	runPwCliProfileOpen({
+		connection: options,
+		headed: false,
+	});
+	try {
+		runPwCliBridge({
+			connection: options,
+			args: ["state-save", outputPath],
+		});
+	} finally {
+		try {
+			runPwCliClose(options);
+		} catch {}
+	}
+
+	return {
+		saved: true,
+		output_path: outputPath,
+		browser: resolved.browser,
+		user_data_dir: resolved.userDataDir,
+		pw_cli_session: resolved.pwCliSession,
+	};
+};
+
+export const runPpProfilePath = async (options: NavigatorProfilePathOptions) => {
+	const resolved = resolvePwCliBridgeMetadata(options);
+	return {
+		browser: resolved.browser,
+		user_data_dir: resolved.userDataDir,
+		pw_cli_session: resolved.pwCliSession,
+	};
+};
+
 export const runPpIsolate = async (options: NavigatorIsolateOptions) =>
 	withNavigatorSession(options, "navigating", async (page, targetUrl) => {
 		const project = resolveNavigatorProject({
@@ -1338,15 +1565,23 @@ export const runPpIsolate = async (options: NavigatorIsolateOptions) =>
 					options.chromiumLaunchProfile ??
 					NAVIGATOR_DEFAULT_CHROMIUM_LAUNCH_PROFILE,
 				cdp_url: options.cdpUrl ?? null,
-					user_data_dir: options.userDataDir ?? null,
-					profile: options.profile ?? null,
-					session: options.session ?? null,
-					headless: options.headless,
+				user_data_dir: options.userDataDir ?? null,
+				profile: options.profile ?? null,
+				session: options.session ?? null,
+				headless: options.headless,
 				chat_url: options.chatUrl,
 				target_url: targetUrl,
 				no_navigate: options.noNavigate === true,
 				strict_tab_targeting: options.strictTabTargeting === true,
 			},
+			managed_user_data_dir:
+				isNonEmpty(options.cdpUrl)
+					? null
+					: resolveManagedProfileUserDataDir(options),
+			pw_cli_session:
+				isNonEmpty(options.cdpUrl)
+					? null
+					: resolvePwCliBridgeSessionName(options),
 			current_url: page.url(),
 			model: await getCurrentModel(page),
 		};

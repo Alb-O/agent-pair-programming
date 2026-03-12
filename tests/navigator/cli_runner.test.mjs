@@ -13,6 +13,8 @@ const {
 	resolvePpSendAction,
 	resolvePpFreshSendTargetUrl,
 	resolvePpCommandLockPath,
+	resolvePpManagedProfileUserDataDir,
+	resolvePpPwCliSessionName,
 	resolvePpSendSessionMode,
 	resolvePpSendStartNewChat,
 	resolvePpWaitAction,
@@ -287,6 +289,45 @@ test("resolvePpSendAction rejects sends while response is in progress", () => {
 test("resolvePpWaitAction routes idle sessions to get-response", () => {
 	assert.equal(resolvePpWaitAction(true), "wait");
 	assert.equal(resolvePpWaitAction(false), "get-response");
+});
+
+test("resolvePpManagedProfileUserDataDir resolves the runtime profile path from profile or session", () => {
+	const profilePath = resolvePpManagedProfileUserDataDir({
+		...baseConnection,
+		profile: "team-a",
+	});
+	const sessionPath = resolvePpManagedProfileUserDataDir({
+		...baseConnection,
+		session: "team-session",
+	});
+
+	assert.match(
+		profilePath,
+		/\/pp\/profiles\/team-a\/browser-state\/v1\/linux$/,
+	);
+	assert.match(
+		sessionPath,
+		/\/pp\/profiles\/team-session\/browser-state\/v1\/linux$/,
+	);
+});
+
+test("resolvePpPwCliSessionName is stable for the same managed profile path", () => {
+	const profileA1 = resolvePpPwCliSessionName({
+		...baseConnection,
+		profile: "team-a",
+	});
+	const profileA2 = resolvePpPwCliSessionName({
+		...baseConnection,
+		profile: "team-a",
+	});
+	const profileB = resolvePpPwCliSessionName({
+		...baseConnection,
+		profile: "team-b",
+	});
+
+	assert.equal(profileA1, profileA2);
+	assert.match(profileA1, /^pp-[a-f0-9]{12}$/);
+	assert.notEqual(profileA1, profileB);
 });
 
 test("resolvePpCommandLockPath scopes locks per project and profile context", () => {

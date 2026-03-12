@@ -38,11 +38,15 @@ import {
 	runPpGetResponse,
 	runPpHistory,
 	runPpIsolate,
+	runPpLogin,
 	runPpNew,
 	runPpPaste,
+	runPpProfilePath,
 	runPpRefresh,
 	runPpSend,
 	runPpSetModel,
+	runPpStateLoad,
+	runPpStateSave,
 	runPpWait,
 	type NavigatorAttachOptions,
 	type NavigatorBriefOptions,
@@ -52,10 +56,14 @@ import {
 	type NavigatorDownloadOptions,
 	type NavigatorGetResponseOptions,
 	type NavigatorHistoryOptions,
+	type NavigatorLoginOptions,
 	type NavigatorNewOptions,
 	type NavigatorPasteOptions,
+	type NavigatorProfilePathOptions,
 	type NavigatorSendOptions,
 	type NavigatorSetModelOptions,
+	type NavigatorStateLoadOptions,
+	type NavigatorStateSaveOptions,
 	type NavigatorWaitOptions,
 } from "../../navigator/runtime/cli_runner";
 
@@ -78,6 +86,10 @@ export const PP_COMMAND_USAGE_LINES = [
 	"  refresh [connection opts] [--json]",
 	"  paste [connection opts] [--send] [--clear] [--json]",
 	"  isolate [connection opts] [--json]",
+	"  login [connection opts] [--json]",
+	"  state-load [connection opts] <file> [--json]",
+	"  state-save [connection opts] <file> [--json]",
+	"  profile-path [connection opts] [--json]",
 ] as const;
 
 export const CONNECTION_USAGE_LINES = [
@@ -175,6 +187,30 @@ export type PpIsolateCommand = {
 	json: boolean;
 };
 
+export type PpLoginCommand = {
+	kind: "pp-login";
+	options: NavigatorLoginOptions;
+	json: boolean;
+};
+
+export type PpStateLoadCommand = {
+	kind: "pp-state-load";
+	options: NavigatorStateLoadOptions;
+	json: boolean;
+};
+
+export type PpStateSaveCommand = {
+	kind: "pp-state-save";
+	options: NavigatorStateSaveOptions;
+	json: boolean;
+};
+
+export type PpProfilePathCommand = {
+	kind: "pp-profile-path";
+	options: NavigatorProfilePathOptions;
+	json: boolean;
+};
+
 export type PpSubcommand =
 	| PpSendCommand
 	| PpWaitCommand
@@ -188,7 +224,11 @@ export type PpSubcommand =
 	| PpNewCommand
 	| PpRefreshCommand
 	| PpPasteCommand
-	| PpIsolateCommand;
+	| PpIsolateCommand
+	| PpLoginCommand
+	| PpStateLoadCommand
+	| PpStateSaveCommand
+	| PpProfilePathCommand;
 
 export type PpModuleCommand = PpSubcommand;
 
@@ -1043,6 +1083,122 @@ const parsePpIsolateCommand = (
 	};
 };
 
+const parsePpLoginCommand = (
+	subArgs: readonly string[],
+	usage: string,
+): PpLoginCommand => {
+	const { options, positionals } = parseWithCommander({
+		argv: subArgs,
+		binaryName: "pp login",
+		usage,
+		configure: (command) => {
+			applyConnectionOptions(command);
+			command.option("--json");
+		},
+	});
+	requireNoPositionals({
+		positionals,
+		context: "pp login",
+		usage,
+	});
+	return {
+		kind: "pp-login",
+		options: parseNavigatorConnection({ options, argv: subArgs, usage }),
+		json: readBooleanOption({
+			options,
+			key: "json",
+		}),
+	};
+};
+
+const parsePpStateLoadCommand = (
+	subArgs: readonly string[],
+	usage: string,
+): PpStateLoadCommand => {
+	const { options, positionals } = parseWithCommander({
+		argv: subArgs,
+		binaryName: "pp state-load",
+		usage,
+		configure: (command) => {
+			applyConnectionOptions(command);
+			command.argument("<file>");
+			command.option("--json");
+		},
+	});
+	if (positionals.length !== 1) {
+		throw new Error(`pp state-load requires exactly one <file>\n${usage}`);
+	}
+	return {
+		kind: "pp-state-load",
+		options: {
+			...parseNavigatorConnection({ options, argv: subArgs, usage }),
+			inputPath: positionals[0],
+		},
+		json: readBooleanOption({
+			options,
+			key: "json",
+		}),
+	};
+};
+
+const parsePpStateSaveCommand = (
+	subArgs: readonly string[],
+	usage: string,
+): PpStateSaveCommand => {
+	const { options, positionals } = parseWithCommander({
+		argv: subArgs,
+		binaryName: "pp state-save",
+		usage,
+		configure: (command) => {
+			applyConnectionOptions(command);
+			command.argument("<file>");
+			command.option("--json");
+		},
+	});
+	if (positionals.length !== 1) {
+		throw new Error(`pp state-save requires exactly one <file>\n${usage}`);
+	}
+	return {
+		kind: "pp-state-save",
+		options: {
+			...parseNavigatorConnection({ options, argv: subArgs, usage }),
+			outputPath: positionals[0],
+		},
+		json: readBooleanOption({
+			options,
+			key: "json",
+		}),
+	};
+};
+
+const parsePpProfilePathCommand = (
+	subArgs: readonly string[],
+	usage: string,
+): PpProfilePathCommand => {
+	const { options, positionals } = parseWithCommander({
+		argv: subArgs,
+		binaryName: "pp profile-path",
+		usage,
+		configure: (command) => {
+			applyConnectionOptions(command);
+			command.option("--json");
+		},
+	});
+	requireNoPositionals({
+		positionals,
+		context: "pp profile-path",
+		usage,
+	});
+	return {
+		kind: "pp-profile-path",
+		options: parseNavigatorConnection({ options, argv: subArgs, usage }),
+		json: readBooleanOption({
+			options,
+			key: "json",
+		}),
+	};
+};
+
 const parsePpSubcommand = (
 	argv: readonly string[],
 	usage: string,
@@ -1080,6 +1236,14 @@ const parsePpSubcommand = (
 			return parsePpPasteCommand(subArgs, usage);
 		case "isolate":
 			return parsePpIsolateCommand(subArgs, usage);
+		case "login":
+			return parsePpLoginCommand(subArgs, usage);
+		case "state-load":
+			return parsePpStateLoadCommand(subArgs, usage);
+		case "state-save":
+			return parsePpStateSaveCommand(subArgs, usage);
+		case "profile-path":
+			return parsePpProfilePathCommand(subArgs, usage);
 		default:
 			throw new Error(`unknown pp subcommand '${subcommand}'\n${usage}`);
 	}
@@ -1270,6 +1434,52 @@ const runPpSubcommand = async (command: PpSubcommand): Promise<number> => {
 		case "pp-isolate": {
 			const result = await runPpIsolate(command.options);
 			printJson(result);
+			return 0;
+		}
+
+		case "pp-login": {
+			const result = await runPpLogin(command.options);
+			if (command.json) {
+				printJson(result);
+			} else {
+				printText(
+					`Opened login browser for ${result.user_data_dir}\nClose that browser before running pp commands against the same profile.`,
+				);
+			}
+			return 0;
+		}
+
+		case "pp-state-load": {
+			const result = await runPpStateLoad(command.options);
+			if (command.json) {
+				printJson(result);
+			} else {
+				printText(
+					`Loaded ${result.input_path} into ${result.user_data_dir}`,
+				);
+			}
+			return 0;
+		}
+
+		case "pp-state-save": {
+			const result = await runPpStateSave(command.options);
+			if (command.json) {
+				printJson(result);
+			} else {
+				printText(
+					`Saved state from ${result.user_data_dir} to ${result.output_path}`,
+				);
+			}
+			return 0;
+		}
+
+		case "pp-profile-path": {
+			const result = await runPpProfilePath(command.options);
+			if (command.json) {
+				printJson(result);
+			} else {
+				printText(result.user_data_dir);
+			}
 			return 0;
 		}
 	}
