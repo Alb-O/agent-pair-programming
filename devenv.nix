@@ -20,6 +20,7 @@ in
   packages = [
     shared.node
     shared.ppCli
+    shared.pwCli
     pkgs.typescript
     pkgs.chromium
     pkgs.fontconfig

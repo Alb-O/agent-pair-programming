@@ -449,15 +449,20 @@ export const resolvePpPwCliSessionName = resolvePwCliBridgeSessionName;
 const resolvePwCliBridgeEnv = (
 	connection: NavigatorConnectionOptions,
 ): NodeJS.ProcessEnv => {
+	const chromiumExecutable =
+		resolveConnectionBrowser(connection) === "chromium"
+			? (
+					isNonEmpty(connection.chromiumBin)
+						? path.resolve(connection.chromiumBin)
+						: process.env.CHROMIUM_BIN?.trim()
+				)
+			: undefined;
 	const env: NodeJS.ProcessEnv = {
 		...process.env,
 		PLAYWRIGHT_CLI_SESSION: resolvePwCliBridgeSessionName(connection),
 	};
-	if (
-		resolveConnectionBrowser(connection) === "chromium" &&
-		isNonEmpty(connection.chromiumBin)
-	) {
-		env.PW_BROWSER_EXECUTABLE_PATH = path.resolve(connection.chromiumBin);
+	if (isNonEmpty(chromiumExecutable)) {
+		env.PW_BROWSER_EXECUTABLE_PATH = chromiumExecutable;
 	}
 	return env;
 };

@@ -7,6 +7,7 @@ let
   node = pkgs.nodejs_22;
   workspaceRoot = ../.;
   pwShared = import ../../pw/nix/shared.nix { inherit pkgs; };
+  pwCli = pwShared.pwCli;
   pwRuntime = pwShared.workspaceCli;
   fontsConf = pkgs.makeFontsConf {
     fontDirectories = [ pkgs.dejavu_fonts ];
@@ -63,9 +64,13 @@ let
     }:
     pkgs.writeShellApplication {
       inherit name;
-      runtimeInputs = [ node ];
+      runtimeInputs = [
+        node
+        pwCli
+      ];
       text = ''
         export NODE_PATH=${builtCli}/node_modules''${NODE_PATH:+:$NODE_PATH}
+        export PP_PW_CLI_BIN=${pwCli}/bin/pw-cli
         exec node ${builtCli}/${entrypoint} "$@"
       '';
     };
@@ -86,6 +91,7 @@ in
   inherit
     fontsConf
     node
+    pwCli
     pwShared
     pwRuntime
     ppAutomationCli
